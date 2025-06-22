@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ntando's Smirfoof Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  body {
+    background: radial-gradient(circle at center, #0a0a23, #000010);
+    color: #e0e0ff;
+    font-family: 'Orbitron', monospace, Arial, sans-serif;
+    text-align: center;
+    user-select: none;
+    overflow-x: hidden;
+  }
+  h2 {
+    margin: 15px 0 5px;
+    text-shadow: 0 0 10px #00f, 0 0 20px #0ff;
+  }
+  p {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #a0aaff;
+  }
+  canvas {
+    display: block;
+    margin: 0 auto;
+    background: #111c2c;
+    border: 3px solid #0ff;
+    border-radius: 15px;
+    box-shadow:
+      0 0 10px #00ffff88,
+      inset 0 0 15px #00ffff99;
+  }
+  #controls {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+  }
+  button {
+    background: linear-gradient(145deg, #004466, #0077aa);
+    border: none;
+    padding: 15px 30px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #cceeff;
+    border-radius: 15px;
+    cursor: pointer;
+    box-shadow: 0 0 8px #0ff;
+    transition: all 0.3s ease;
+    user-select: none;
+  }
+  button:hover {
+    background: linear-gradient(145deg, #0077aa, #00bbff);
+    box-shadow: 0 0 15px #0ff, 0 0 30px #00ffffcc;
+    transform: scale(1.1);
+  }
+  button:active {
+    background: #005577;
+    box-shadow: none;
+    transform: scale(0.95);
+  }
+</style>
+</head>
+<body>
+
+<h2>Ntando's Smirfoof Game</h2>
+<p>Use ⬅️ ➡️ keys or buttons to move, press SPACE or "Shoot" to fire</p>
+<canvas id="gameCanvas" width="400" height="600" aria-label="Game canvas"></canvas>
+
+<div id="controls" role="group" aria-label="Game controls">
+  <button onclick="moveLeft()" aria-label="Move Left">⬅️ Left</button>
+  <button onclick="shoot()" aria-label="Shoot">🔫 Shoot</button>
+  <button onclick="moveRight()" aria-label="Move Right">➡️ Right</button>
+</div>
+
+<!-- Background Music -->
+<audio id="bgMusic" loop preload="auto">
+  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg" />
+</audio>
+
+<!-- Shoot sound effect -->
+<audio id="shootSound" preload="auto">
+  <source src="https://freesound.org/data/previews/82/82520_1022651-lq.mp3" type="audio/mpeg" />
+</audio>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const bgMusic = document.getElementById('bgMusic');
+  const shootSound = document.getElementById('shootSound');
+
+  let player = { x: 180, y: 540, width: 40, height: 40 };
+  let bullets = [];
+  let blocks = [];
+  let score = 0;
+  let gameOver = false;
+  let restarted = false;
+
+  window.addEventListener('click', () => {
+    if (bgMusic.paused) bgMusic.play();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (gameOver) return;
+    if (e.key === 'ArrowLeft') moveLeft();
+    if (e.key === 'ArrowRight') moveRight();
+    if (e.key === ' ' || e.key === 'Spacebar') shoot();
+  });
+
+  function moveLeft() {
+    player.x = Math.max(0, player.x - 20);
+  }
+
+  function moveRight() {
+    player.x = Math.min(canvas.width - player.width, player.x + 20);
+  }
+
+  function shoot() {
+    if (gameOver) return;
+    bullets.push({ x: player.x + 15, y: player.y - 10, width: 10, height: 10, speed: 9 });
+    shootSound.currentTime = 0;
+    shootSound.play();
+  }
+
+  function createBlock() {
+    blocks.push({
+      x: Math.random() * (canvas.width - 40),
+      y: -20,
+      width: 40,
+      height: 30,
+      speed: 3 + Math.random() * 2,
+      rotation: 0,
+      rotationSpeed: (Math.random() * 0.04) - 0.02
+    });
+  }
+
+  function drawBackgroundText() {
+    ctx.save();
+    ctx.font = 'bold 120px Orbitron';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.07)';
+    ctx.shadowColor = '#00ffffaa';
+    ctx.shadowBlur = 30;
+    ctx.fillText('NTANDO', canvas.width / 2, 320);
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    ctx.save();
+    ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+
+    ctx.shadowColor = '#00ccff';
+    ctx.shadowBlur = 15;
+
+    ctx.fillStyle = '#00ffff';
+    ctx.beginPath();
+    ctx.moveTo(0, -20);
+    ctx.lineTo(20, 20);
+    ctx.lineTo(-20, 20);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = '#0066aa';
+    ctx.beginPath();
+    ctx.arc(0, 5, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawBullets() {
+    for (let i = 0; i < bullets.length; i++) {
+      const b = bullets[i];
+      ctx.save();
+      ctx.fillStyle = '#fffb6f';
+      ctx.shadowColor = '#ffff66';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.ellipse(b.x + b.width / 2, b.y + b.height / 2, b.width / 2, b.height / 2, 0, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+
+      b.y -= b.speed;
+      if (b.y + b.height < 0) {
+        bullets.splice(i, 1);
+        i--;
+      }
+    }
+  }
+
+  function drawBlocks() {
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      b.rotation += b.rotationSpeed;
+
+      ctx.save();
+      ctx.translate(b.x + b.width / 2, b.y + b.height / 2);
+      ctx.rotate(b.rotation);
+
+      ctx.fillStyle = '#bb4444';
+      ctx.shadowColor = '#aa4444';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+
+      const spikes = 8;
+      const outerRadius = 20;
+      const innerRadius = 12;
+      for (let s = 0; s < spikes; s++) {
+        let angle = (s * Math.PI * 2) / spikes;
+        let radius = s % 2 === 0 ? outerRadius : innerRadius;
+        let x = Math.cos(angle) * radius;
+        let y = Math.sin(angle) * radius;
+        if (s === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+
+      b.y += b.speed;
+      if (b.y - b.height > canvas.height) {
+        blocks.splice(i, 1);
+        i--;
+      }
+    }
+  }
+
+  function checkCollisions() {
+    for (let b of blocks) {
+      if (
+        b.x < player.x + player.width &&
+        b.x + b.width > player.x &&
+        b.y < player.y + player.height &&
+        b.y + b.height > player.y
+      ) {
+        gameOver = true;
+        break;
+      }
+    }
+
+    for (let i = 0; i < bullets.length; i++) {
+      for (let j = 0; j < blocks.length; j++) {
+        const bullet = bullets[i];
+        const block = blocks[j];
+        if (
+          bullet.x < block.x + block.width &&
+          bullet.x + bullet.width > block.x &&
+          bullet.y < block.y + block.height &&
+          bullet.y + bullet.height > block.y
+        ) {
+          bullets.splice(i, 1);
+          blocks.splice(j, 1);
+          score += 50;
+          return;
+        }
+      }
+    }
+  }
+
+  function drawScore() {
+    ctx.save();
+    ctx.font = '24px Orbitron';
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffffaa';
+    ctx.shadowBlur = 12;
+    ctx.fillText('Score: ' + score, 15, 40);
+    ctx.restore();
+  }
+
+  function resetGame() {
+    score = 0;
+    bullets = [];
+    blocks = [];
+    gameOver = false;
+    restarted = false;
+    player.x = 180;
+    const btn = document.getElementById('restartBtn');
+    if (btn) btn.remove();
+    gameLoop();
+  }
+
+  function drawGameOver() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.font = '48px Orbitron';
+    ctx.fillStyle = '#ff4444';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff4444cc';
+    ctx.shadowBlur = 20;
+    ctx.fillText('Game Over!', canvas.width / 2, 230);
+
+    ctx.font = '20px Orbitron';
+    ctx.fillStyle = '#ffffffcc';
+    ctx.shadowColor = '#000000aa';
+    ctx.shadowBlur = 5;
+    ctx.fillText('Final Score: ' + score, canvas.width / 2, 280);
+
+    ctx.font = '18px Arial';
+    ctx.fillStyle = '#aaffaa';
+    ctx.shadowColor = '#00aa00cc';
+    ctx.shadowBlur = 12;
+    ctx.fillText('This game was created By Ntando Blessing.', canvas.width / 2, 330);
+    ctx.fillText('Text me on WhatsApp 0640270403 for full sample', canvas.width / 2, 360);
+    ctx.restore();
+
+    if (!restarted) {
+      const btn = document.createElement('button');
+      btn.textContent = '🔁 Restart Game';
+      btn.id = 'restartBtn';
+      btn.style.marginTop = '25px';
+      btn.style.padding = '15px 35px';
+      btn.style.fontSize = '22px';
+      btn.onclick = resetGame;
+      document.body.appendChild(btn);
+      restarted = true;
+    }
+  }
+
+  function gameLoop() {
+    if (gameOver) {
+      drawGameOver();
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackgroundText();
+    drawPlayer();
+    drawBlocks();
+    drawBullets();
+    checkCollisions();
+    drawScore();
+
+    score++;
+
+    if (Math.random() < 0.03) {
+      createBlock();
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+</script>
+
+</body>
+</html>
